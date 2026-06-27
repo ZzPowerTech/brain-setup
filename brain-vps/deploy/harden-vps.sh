@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # harden-vps.sh — SSH Hardening Script para brain-vps
-# VPS: root@187.124.243.193 (Ubuntu 24.04)
+# VPS: root@<VPS_IP> (Ubuntu 24.04)
 #
 # Uso: execute este script DIRETAMENTE na VPS via console (Hostinger/painel)
 # ou via: bash harden-vps.sh
@@ -41,7 +41,7 @@ fi
 echo -e "
 ${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗
 ║          brain-vps SSH Hardening Script (bash)               ║
-║          VPS: 187.124.243.193  |  Ubuntu 24.04               ║
+║          VPS: <VPS_IP>  |  Ubuntu 24.04               ║
 ╚══════════════════════════════════════════════════════════════╝${RESET}
 
 ${BOLD}${YELLOW}AVISO CRÍTICO:${RESET}
@@ -275,7 +275,7 @@ echo -e "${BOLD}${GREEN}╔═════════════════�
 
 ${BOLD}Proximos passos:${RESET}
   1. Abra um NOVO terminal e teste:
-     ssh -i ~/.ssh/brain_vps root@187.124.243.193
+     ssh -i ~/.ssh/brain_vps root@<VPS_IP>
 
   2. So feche esta sessao apos confirmar acesso por chave.
 

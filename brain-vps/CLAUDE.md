@@ -6,7 +6,7 @@ Infraestrutura self-hosted do Second Brain na VPS Hostinger (weissmurillo.de).
 ## Stack
 - VPS: Ubuntu 24.04
   - senha vps: [ver gerenciador de senhas — NUNCA commitar aqui]
-  - vps: ssh -i ~/.ssh/brain_vps root@187.124.243.193 (somente chave, sem senha)
+  - vps: ssh -i ~/.ssh/brain_vps root@<VPS_IP> (somente chave, sem senha)
 - Docker Compose: NestJS + AppFlowy
 - Obsidian Headless: Sync contínuo do vault (systemd service)
 - Nginx + SSL (Let's Encrypt)

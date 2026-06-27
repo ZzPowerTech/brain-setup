@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 harden-vps.py — SSH Hardening Script for brain-vps
-VPS: root@187.124.243.193 (Ubuntu 24.04)
+VPS: root@<VPS_IP> (Ubuntu 24.04)
 
 AVISO CRÍTICO: Mantenha sua sessão SSH atual aberta durante todo o processo.
 Se algo der errado, você precisará dela para reverter as alterações.
@@ -37,7 +37,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Configuração
 # ---------------------------------------------------------------------------
-HOST     = "187.124.243.193"
+HOST     = "<VPS_IP>"
 PORT     = 22
 USER     = "root"
 PASSWORD = "f1gPdNTETrx8lWzP#"

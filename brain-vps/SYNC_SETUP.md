@@ -11,32 +11,32 @@ Script Node.js que sincroniza documentos do CouchDB (Obsidian LiveSync) para o f
 ### 1. Copiar arquivos
 
 ```bash
-scp -i ~/.ssh/brain_vps sync-couchdb-to-fs.js root@187.124.243.193:/opt/brain/
-scp -i ~/.ssh/brain_vps brain-sync.service root@187.124.243.193:/etc/systemd/system/
+scp -i ~/.ssh/brain_vps sync-couchdb-to-fs.js root@<VPS_IP>:/opt/brain/
+scp -i ~/.ssh/brain_vps brain-sync.service root@<VPS_IP>:/etc/systemd/system/
 ```
 
 ### 2. Dar permissão de execução
 
 ```bash
-ssh -i ~/.ssh/brain_vps root@187.124.243.193 chmod +x /opt/brain/sync-couchdb-to-fs.js
+ssh -i ~/.ssh/brain_vps root@<VPS_IP> chmod +x /opt/brain/sync-couchdb-to-fs.js
 ```
 
 ### 3. Ativar o serviço
 
 ```bash
-ssh -i ~/.ssh/brain_vps root@187.124.243.193 "systemctl daemon-reload && systemctl enable brain-sync && systemctl start brain-sync"
+ssh -i ~/.ssh/brain_vps root@<VPS_IP> "systemctl daemon-reload && systemctl enable brain-sync && systemctl start brain-sync"
 ```
 
 ### 4. Verificar status
 
 ```bash
-ssh -i ~/.ssh/brain_vps root@187.124.243.193 "systemctl status brain-sync"
+ssh -i ~/.ssh/brain_vps root@<VPS_IP> "systemctl status brain-sync"
 ```
 
 Ver logs em tempo real:
 
 ```bash
-ssh -i ~/.ssh/brain_vps root@187.124.243.193 "journalctl -u brain-sync -f"
+ssh -i ~/.ssh/brain_vps root@<VPS_IP> "journalctl -u brain-sync -f"
 ```
 
 ## Como funciona
