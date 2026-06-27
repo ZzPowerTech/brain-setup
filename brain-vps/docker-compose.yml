@@ -33,8 +33,12 @@ services:
       PORT: 3000
       NODE_ENV: production
       ALLOWED_ORIGIN: https://brain.weissmurillo.de
+      # Busca semântica (Fase 3): embeddings Gemini + índice local
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      INDEX_PATH: /index/embeddings.json
     volumes:
       - /opt/brain/vault:/vault
+      - /opt/brain/index:/index
     networks:
       - brain-net
     ports:

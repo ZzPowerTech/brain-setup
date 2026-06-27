@@ -202,4 +202,26 @@ export class BrainController {
   async renameNote(@Body() body: RenameNoteDto): Promise<NoteDetail> {
     return this.brain.renameNote(body.path, body.newPath);
   }
+
+  // GET /api/brain/search/semantic?q=...&limit=... — busca por significado (embeddings)
+  @Get('search/semantic')
+  async semanticSearch(@Query() query: SearchQueryDto): Promise<SearchResponse> {
+    const results = await this.brain.semanticSearch(query.q, query.limit);
+    return { results };
+  }
+
+  // POST /api/brain/reindex — (re)constroi o índice de embeddings do vault
+  @Post('reindex')
+  @HttpCode(HttpStatus.OK)
+  async reindex(): Promise<{
+    indexed: number;
+    skipped: number;
+    removed: number;
+    total: number;
+    dim: number;
+    partial: boolean;
+    pending: number;
+  }> {
+    return this.brain.reindex();
+  }
 }

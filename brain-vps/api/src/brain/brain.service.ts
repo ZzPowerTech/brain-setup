@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
+import { createHash } from 'crypto';
 
 export interface NotePreview {
   title: string;
@@ -55,6 +56,19 @@ export interface TagsResult {
   tags: Record<string, number>;
 }
 
+interface IndexEntry {
+  hash: string;
+  title: string;
+  preview: string;
+  vector: number[];
+}
+
+interface EmbedIndex {
+  model: string;
+  dim: number;
+  notes: Record<string, IndexEntry>;
+}
+
 // Caminhos internos do vault — alterar aqui reflete em todos os endpoints
 const VAULT_PATHS = {
   claudeFiles: ['CLAUDE.md', 'MEMORY.md'],
@@ -64,6 +78,11 @@ const VAULT_PATHS = {
   // Lixeira do soft-delete. Começa com '.' → ignorada por search/structure/getAllMdFiles.
   trashDir: 'archive/.trash',
 } as const;
+
+// Busca semântica (Gemini embeddings)
+const EMBED_MODEL = 'gemini-embedding-001';
+const EMBED_DIM = 768;
+const MAX_EMBED_CHARS = 8000;
 
 @Injectable()
 export class BrainService {
@@ -678,5 +697,188 @@ export class BrainService {
       throw new NotFoundException('Falha ao ler nota após rename');
     }
     return note;
+  }
+
+  // ─── Busca semântica (embeddings Gemini) ──────────────────────────────────
+
+  private get indexPath(): string {
+    return this.config.get<string>('INDEX_PATH') ?? '/index/embeddings.json';
+  }
+
+  // Embeda um texto via Gemini. taskType distingue documento (indexação) de query (busca).
+  private async embed(
+    text: string,
+    taskType: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY',
+  ): Promise<number[]> {
+    const key = this.config.get<string>('GOOGLE_API_KEY');
+    if (!key) {
+      throw new BadRequestException('GOOGLE_API_KEY não configurada — busca semântica indisponível');
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent?key=${key}`;
+    const body = {
+      model: `models/${EMBED_MODEL}`,
+      content: { parts: [{ text: text.slice(0, MAX_EMBED_CHARS) }] },
+      taskType,
+      outputDimensionality: EMBED_DIM,
+    };
+    // Retry com backoff exponencial para 429 (rate limit por minuto do free tier)
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { embedding?: { values?: number[] } };
+        const vec = data.embedding?.values;
+        if (!Array.isArray(vec) || vec.length === 0) {
+          throw new BadRequestException('Resposta de embedding inválida');
+        }
+        return this.normalize(vec);
+      }
+      if (res.status === 429 && attempt < maxAttempts) {
+        await this.sleep(Math.min(60000, 3000 * 2 ** (attempt - 1))); // 3s, 6s, 12s, 24s
+        continue;
+      }
+      const detail = (await res.text()).slice(0, 200);
+      throw new BadRequestException(`Falha no embedding (${res.status}): ${detail}`);
+    }
+    throw new BadRequestException('Falha no embedding após múltiplas tentativas (rate limit)');
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private normalize(v: number[]): number[] {
+    let norm = 0;
+    for (const x of v) norm += x * x;
+    norm = Math.sqrt(norm) || 1;
+    return v.map((x) => x / norm);
+  }
+
+  // Vetores já normalizados → produto escalar = cosseno.
+  private dot(a: number[], b: number[]): number {
+    let s = 0;
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) s += a[i] * b[i];
+    return s;
+  }
+
+  private async loadIndex(): Promise<EmbedIndex> {
+    try {
+      const raw = await fs.promises.readFile(this.indexPath, 'utf-8');
+      return JSON.parse(raw) as EmbedIndex;
+    } catch {
+      return { model: EMBED_MODEL, dim: EMBED_DIM, notes: {} };
+    }
+  }
+
+  private async saveIndex(index: EmbedIndex): Promise<void> {
+    await fs.promises.mkdir(path.dirname(this.indexPath), { recursive: true });
+    const tmp = `${this.indexPath}.${process.pid}.${Date.now()}.tmp`;
+    await fs.promises.writeFile(tmp, JSON.stringify(index), 'utf-8');
+    await fs.promises.rename(tmp, this.indexPath);
+  }
+
+  // Reindexa o vault: embeda apenas notas novas/alteradas (comparação por hash de conteúdo).
+  async reindex(): Promise<{
+    indexed: number;
+    skipped: number;
+    removed: number;
+    total: number;
+    dim: number;
+    partial: boolean;
+    pending: number;
+  }> {
+    const index = await this.loadIndex();
+    // Índice incompatível (modelo/dim diferentes) → reconstruir do zero
+    if (index.model !== EMBED_MODEL || index.dim !== EMBED_DIM) {
+      index.model = EMBED_MODEL;
+      index.dim = EMBED_DIM;
+      index.notes = {};
+    }
+
+    const files = await this.getAllMdFiles(this.vaultPath);
+    const livePaths = new Set<string>();
+    const pending: Array<{ relativePath: string; content: string; hash: string }> = [];
+    let skipped = 0;
+
+    for (const file of files) {
+      const relativePath = path.relative(this.vaultPath, file).replace(/\\/g, '/');
+      livePaths.add(relativePath);
+      const content = await fs.promises.readFile(file, 'utf-8');
+      const hash = createHash('sha256').update(content).digest('hex');
+      const existing = index.notes[relativePath];
+      if (existing && existing.hash === hash) {
+        skipped++;
+        continue;
+      }
+      pending.push({ relativePath, content, hash });
+    }
+
+    // Serial + checkpoint: respeita o rate limit do free tier e é resumível.
+    // Se o rate limit persistir após os retries do embed(), para e salva o progresso;
+    // basta re-rodar o reindex para continuar de onde parou (comparação por hash).
+    let indexed = 0;
+    let partial = false;
+    for (const item of pending) {
+      try {
+        const parsed = matter(item.content);
+        const title = path.basename(item.relativePath, '.md');
+        const vector = await this.embed(`${title}\n\n${parsed.content}`, 'RETRIEVAL_DOCUMENT');
+        index.notes[item.relativePath] = {
+          hash: item.hash,
+          title,
+          preview: parsed.content.substring(0, 300).trim(),
+          vector,
+        };
+        indexed++;
+        if (indexed % 10 === 0) await this.saveIndex(index); // checkpoint resumível
+      } catch {
+        partial = true;
+        break;
+      }
+    }
+
+    // Remove do índice notas que não existem mais no vault
+    let removed = 0;
+    for (const p of Object.keys(index.notes)) {
+      if (!livePaths.has(p)) {
+        delete index.notes[p];
+        removed++;
+      }
+    }
+
+    await this.saveIndex(index);
+    return {
+      indexed,
+      skipped,
+      removed,
+      total: Object.keys(index.notes).length,
+      dim: EMBED_DIM,
+      partial,
+      pending: pending.length - indexed,
+    };
+  }
+
+  // Busca semântica: embeda a query e retorna as notas mais similares por cosseno.
+  async semanticSearch(query: string, limit = 10): Promise<NotePreview[]> {
+    const index = await this.loadIndex();
+    const entries = Object.entries(index.notes);
+    if (entries.length === 0) {
+      throw new BadRequestException('Índice vazio — rode POST /api/brain/reindex primeiro');
+    }
+    const qVec = await this.embed(query, 'RETRIEVAL_QUERY');
+    const scored: NotePreview[] = entries.map(([p, e]) => ({
+      title: e.title,
+      path: p,
+      tags: [],
+      preview: e.preview,
+      score: this.dot(qVec, e.vector),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit);
   }
 }

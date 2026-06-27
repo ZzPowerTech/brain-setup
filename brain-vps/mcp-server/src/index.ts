@@ -246,6 +246,23 @@ function createMcpServer(): Server {
         },
       },
       {
+        name: "brain-semantic-search",
+        description: "Busca SEMÂNTICA (por significado, não por palavra exata) nas notas do vault, usando embeddings. Use para 'encontre notas sobre X', recuperar contexto relevante antes de responder, ou quando a busca por palavra-chave (brain-search) não acharia por sinônimos/conceitos. Requer que o índice exista (brain-reindex).",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            query: { type: "string", description: "Pergunta ou conceito a buscar por significado" },
+            limit: { type: "number", description: "Número máximo de resultados (padrão: 10)" },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "brain-reindex",
+        description: "(Re)constroi o índice de embeddings do vault para a busca semântica. Embeda apenas notas novas/alteradas (por hash). Rode após mudanças em lote ou na primeira vez. Retorna contagem de indexadas/puladas/removidas.",
+        inputSchema: { type: "object" as const, properties: {}, required: [] },
+      },
+      {
         name: "finance-lancar",
         description: "EXCLUSIVO para lançar transações financeiras no sistema ausFinanceiro (dashboard financeiro do AusTV em finance.weissmurillo.de). Use SEMPRE que o usuário pedir para: registrar venda, lançar gasto, adicionar receita, registrar despesa, registrar entrada/saída de dinheiro. NÃO use brain-daily-append para isso.",
         inputSchema: {
@@ -383,6 +400,16 @@ function createMcpServer(): Server {
           const notePath = a["path"] as string;
           const newPath = a["newPath"] as string;
           result = await callBrainAPI("/brain/note/rename", "POST", { path: notePath, newPath });
+          break;
+        }
+        case "brain-semantic-search": {
+          const query = a["query"] as string;
+          const limit = (a["limit"] as number | undefined) ?? 10;
+          result = await callBrainAPI(`/brain/search/semantic?q=${encodeURIComponent(query)}&limit=${limit}`);
+          break;
+        }
+        case "brain-reindex": {
+          result = await callBrainAPI("/brain/reindex", "POST", {});
           break;
         }
         case "finance-lancar": {
