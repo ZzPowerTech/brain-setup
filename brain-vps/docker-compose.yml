@@ -1,5 +1,3 @@
-version: '3.9'
-
 # ═══════════════════════════════════════════════════════════
 #  Murilo's Second Brain — Docker Compose
 #  Domínio: weissmurillo.de
@@ -47,6 +45,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # ─────────────────────────────────────────────
+  # Brain MCP — Model Context Protocol Server (HTTP/SSE)
+  # Conecta o Claude (claude.ai / Desktop) ao vault via Brain API
+  # Tools: brain-search/get/create/append/update/delete/rename, daily, tasks, tags
+  # Obs: FINANCE_CLI_TOKEN removido — integração finance aposentada.
+  # ─────────────────────────────────────────────
+  brain-mcp:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    image: brain-mcp:latest
+    container_name: brain-mcp
+    restart: unless-stopped
+    environment:
+      MCP_MODE: http
+      PORT: 3001
+      BRAIN_API_URL: https://api.weissmurillo.de/api
+      BRAIN_API_KEY: ${BRAIN_API_KEY}
+    networks:
+      - brain-net
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      - brain-api
 
   # ─────────────────────────────────────────────
   # AppFlowy Cloud — Dashboard Web
