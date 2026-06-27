@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brain — Murilo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a26;
+      --border: #252535;
+      --accent: #7c6af7;
+      --accent2: #4fc3f7;
+      --green: #4caf82;
+      --yellow: #f5c842;
+      --red: #f76a6a;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --font: 'Space Grotesk', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      grid-template-rows: 56px 1fr;
+    }
+
+    /* ── TOPBAR ── */
+    header {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── SIDEBAR ── */
+    aside {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-section {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 12px 8px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--muted);
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--accent)22; color: var(--accent); }
+
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    /* ── MAIN ── */
+    main {
+      padding: 28px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── GRID CARDS ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--accent)66;
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .card-icon { font-size: 20px; }
+    .card-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+    .card-meta { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+    /* ── SEARCH ── */
+    .search-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── RESULTS ── */
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .result-item:hover { border-color: var(--accent2); }
+
+    .result-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .result-path {
+      font-size: 11px;
+      color: var(--accent2);
+      font-family: var(--mono);
+      margin-bottom: 8px;
+    }
+
+    .result-preview {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .tag {
+      background: var(--accent)22;
+      color: var(--accent);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-family: var(--mono);
+    }
+
+    /* ── NOTE VIEWER ── */
+    .note-viewer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      display: none;
+    }
+
+    .note-viewer.active { display: block; }
+
+    .note-viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .note-viewer h2 { font-size: 20px; font-weight: 600; }
+
+    .close-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover { color: var(--text); }
+
+    .note-content {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+      font-family: var(--mono);
+    }
+
+    /* ── LOADING ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 20px 0;
+    }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
+
+    /* ── LOGIN PAGE ── */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-overlay.hidden { display: none; }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .login-logo {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .login-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .login-title span { color: var(--accent); }
+
+    .login-subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .login-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .login-input:focus { border-color: var(--accent); }
+    .login-input::placeholder { color: var(--muted); }
+
+    .login-btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .login-btn:hover { opacity: 0.85; }
+    .login-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .login-error {
+      color: var(--red);
+      font-size: 13px;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    .login-footer {
+      margin-top: 20px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN OVERLAY ── -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">&#129504;</div>
+    <div class="login-title"><span>Brain</span> Login</div>
+    <div class="login-subtitle">Insira sua API Key para acessar o dashboard</div>
+    <input
+      class="login-input"
+      id="loginKeyInput"
+      type="password"
+      placeholder="API Key (min. 32 caracteres)"
+      autocomplete="off"
+    />
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-footer">Sess&atilde;o expira em 24 horas</div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">🧠 <span>Brain</span></div>
+  <div class="header-right">
+    <div class="status-badge">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Conectando...</span>
+    </div>
+    <button class="close-btn" onclick="logout()" title="Sair">Sair</button>
+  </div>
+</header>
+
+<aside>
+  <div class="nav-section">Menu</div>
+  <a class="nav-item active" onclick="showPage('dashboard')">
+    <span class="nav-icon">🏠</span> Dashboard
+  </a>
+  <a class="nav-item" onclick="showPage('search')">
+    <span class="nav-icon">🔍</span> Buscar Notas
+  </a>
+  <a class="nav-item" onclick="showPage('daily')">
+    <span class="nav-icon">📅</span> Daily Note
+  </a>
+  <a class="nav-item" onclick="showPage('claude')">
+    <span class="nav-icon">🤖</span> Claude Context
+  </a>
+  <div class="nav-section">Projetos</div>
+  <div id="projectsNav"><!-- populado dinamicamente --></div>
+</aside>
+
+<main id="mainContent">
+  <!-- Dashboard -->
+  <div id="page-dashboard">
+    <div class="page-title">Dashboard</div>
+    <div class="page-subtitle" id="currentDate"></div>
+    <div class="cards-grid" id="statsCards">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Total de Notas</span>
+          <span class="card-icon">📝</span>
+        </div>
+        <div class="card-value" id="totalNotes">—</div>
+        <div class="card-meta">no vault</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Projetos Ativos</span>
+          <span class="card-icon">🚀</span>
+        </div>
+        <div class="card-value" id="activeProjects">—</div>
+        <div class="card-meta" id="activeProjectsMeta">carregando...</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">API Status</span>
+          <span class="card-icon">⚡</span>
+        </div>
+        <div class="card-value" id="apiStatus" style="font-size:18px;color:var(--green)">Online</div>
+        <div class="card-meta" id="apiUrl">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project -->
+  <div id="page-project" style="display:none;">
+    <div class="page-title" id="projectTitle">Projeto</div>
+    <div class="page-subtitle" id="projectSubtitle"></div>
+    <br/>
+    <div id="projectContent"></div>
+  </div>
+
+  <!-- Search -->
+  <div id="page-search" style="display:none;">
+    <div class="page-title">Buscar Notas</div>
+    <div class="page-subtitle">Pesquisa por título e conteúdo</div>
+    <br/>
+    <div class="search-box">
+      <input class="search-input" id="searchInput" placeholder="Ex: AusTV, plugin, deploy..." />
+      <button class="btn" id="searchBtn" onclick="doSearch()">Buscar</button>
+    </div>
+    <br/>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- Daily -->
+  <div id="page-daily" style="display:none;">
+    <div class="page-title">Daily Note</div>
+    <div id="dailyContent"></div>
+  </div>
+
+  <!-- Claude Context -->
+  <div id="page-claude" style="display:none;">
+    <div class="page-title">Claude Context</div>
+    <div class="page-subtitle">Padrões de trabalho e instruções</div>
+    <div id="claudeContent"></div>
+  </div>
+
+  <!-- Note Viewer (overlay) -->
+  <div class="note-viewer" id="noteViewer">
+    <div class="note-viewer-header">
+      <h2 id="noteTitle">—</h2>
+      <button class="close-btn" onclick="closeNote()">✕ Fechar</button>
+    </div>
+    <pre class="note-content" id="noteContent"></pre>
+  </div>
+</main>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────
+  const API_URL = window.location.origin.includes('localhost')
+    ? 'http://localhost:3001/api'
+    : `https://api.${window.location.hostname.split('.').slice(-2).join('.')}/api`;
+
+  let headers = {};
+
+  // ── AUTH / SESSION ──────────────────────────────
+  const SESSION_KEY = 'brain_session';
+
+  function getSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const session = JSON.parse(raw);
+      if (!session.apiKey || !session.expiresAt) return null;
+      if (new Date(session.expiresAt) <= new Date()) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      return session;
+    } catch (err) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+  }
+
+  function showLogin() {
+    document.getElementById('loginOverlay').classList.remove('hidden');
+    document.getElementById('loginKeyInput').value = '';
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginKeyInput').focus();
+  }
+
+  function hideLogin() {
+    document.getElementById('loginOverlay').classList.add('hidden');
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    showLogin();
+  }
+
+  async function doLogin() {
+    const input = document.getElementById('loginKeyInput');
+    const errorEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+    const apiKey = input.value.trim();
+
+    errorEl.textContent = '';
+
+    if (!apiKey || apiKey.length < 32) {
+      errorEl.textContent = 'API Key deve ter no minimo 32 caracteres.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Verificando...';
+
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'API Key invalida');
+      }
+
+      const data = await res.json();
+
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        apiKey,
+        expiresAt: data.expiresAt,
+      }));
+
+      headers = { 'x-api-key': apiKey };
+      hideLogin();
+      initDashboard();
+    } catch (e) {
+      errorEl.textContent = e.message || 'Erro ao conectar com a API.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    }
+  }
+
+  // ── UTILS ────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('[id^="page-"]').forEach(el => el.style.display = 'none');
+    document.getElementById('noteViewer').classList.remove('active');
+    document.getElementById(`page-${name}`).style.display = 'block';
+
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event?.target?.closest('.nav-item')?.classList.add('active');
+
+    if (name === 'daily') loadDaily();
+    if (name === 'claude') loadClaudeContext();
+  }
+
+  function loading(html = '') {
+    return html || '<div class="loading"><div class="spinner"></div> Carregando...</div>';
+  }
+
+  // ── API ──────────────────────────────────────────
+  async function apiFetch(endpoint) {
+    try {
+      const res = await fetch(`${API_URL}/brain/${endpoint}`, { headers });
+      if (res.status === 401) {
+        logout();
+        return null;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      console.error('API error:', e);
+      return null;
+    }
+  }
+
+  // ── DASHBOARD ────────────────────────────────────
+  async function initDashboard() {
+    document.getElementById('currentDate').textContent =
+      new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('apiUrl').textContent = API_URL;
+
+    try {
+      const res = await fetch(`${API_URL}/brain/structure`, { headers });
+      if (res.status === 401) { logout(); return; }
+      if (res.ok) {
+        document.getElementById('statusDot').style.background = 'var(--green)';
+        document.getElementById('statusDot').style.boxShadow = '0 0 8px var(--green)';
+        document.getElementById('statusText').textContent = 'API Online';
+
+        const data = await res.json();
+
+        const countMd = (nodes) => (nodes || []).reduce(function(acc, n) {
+          return acc + (n.type === 'file' && n.name.endsWith('.md') ? 1 : 0) + (n.children ? countMd(n.children) : 0);
+        }, 0);
+        document.getElementById('totalNotes').textContent = countMd(data.structure);
+
+        const structureNodes = data.structure || [];
+        const projectsNode = structureNodes.find(function(n) { return n.name === 'projects' && n.type === 'folder'; });
+        const projects = (projectsNode && projectsNode.children ? projectsNode.children : []).filter(function(n) { return n.type === 'folder'; });
+
+        document.getElementById('activeProjects').textContent = projects.length || '—';
+        document.getElementById('activeProjectsMeta').textContent =
+          projects.length ? projects.map(p => p.name).join(', ') : 'nenhum projeto';
+
+        const icons = { 'AUSTV': '⛏️', 'AusTV': '⛏️' };
+        document.getElementById('projectsNav').innerHTML = projects.map(p =>
+          `<a class="nav-item" onclick="loadProject('${p.name.replace(/'/g, "\\'")}')">
+            <span class="nav-icon">${icons[p.name] || '📁'}</span> ${p.name}
+          </a>`
+        ).join('');
+      }
+    } catch (err) {
+      document.getElementById('statusDot').style.background = 'var(--red)';
+      document.getElementById('statusText').textContent = 'API Offline';
+      document.getElementById('apiStatus').textContent = 'Offline';
+      document.getElementById('apiStatus').style.color = 'var(--red)';
+    }
+  }
+
+  // ── SEARCH ───────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('searchInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+    document.getElementById('loginKeyInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+  });
+
+  async function doSearch() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+
+    const container = document.getElementById('searchResults');
+    container.innerHTML = loading();
+
+    const data = await apiFetch(`search?q=${encodeURIComponent(q)}&limit=15`);
+
+    if (!data || !data.results || !data.results.length) {
+      container.innerHTML = '<div class="empty">Nenhuma nota encontrada.</div>';
+      return;
+    }
+
+    container.innerHTML = `<div class="results-list">${data.results.map(r => `
+      <div class="result-item" onclick="openNote('${r.path.replace(/'/g, "\\'")}', '${r.title.replace(/'/g, "\\'")}')">
+        <div class="result-title">${r.title}</div>
+        <div class="result-path">${r.path}</div>
+        <div class="result-preview">${r.preview}</div>
+        ${r.tags && r.tags.length ? `<div class="tags">${r.tags.map(t => `<span class="tag">#${t}</span>`).join('')}</div>` : ''}
+      </div>
+    `).join('')}</div>`;
+  }
+
+  // ── NOTE VIEWER ──────────────────────────────────
+  async function openNote(notePath, title) {
+    const viewer = document.getElementById('noteViewer');
+    document.getElementById('noteTitle').textContent = '...';
+    document.getElementById('noteContent').textContent = 'Carregando...';
+    viewer.classList.add('active');
+
+    const data = await apiFetch(`note?path=${encodeURIComponent(notePath)}`);
+    if (!data || data.error) {
+      document.getElementById('noteContent').textContent = 'Erro ao carregar nota.';
+      return;
+    }
+
+    document.getElementById('noteTitle').textContent = data.title;
+    document.getElementById('noteContent').textContent = data.content;
+  }
+
+  function closeNote() {
+    document.getElementById('noteViewer').classList.remove('active');
+  }
+
+  // ── DAILY ────────────────────────────────────────
+  async function loadDaily() {
+    const container = document.getElementById('dailyContent');
+    container.innerHTML = loading();
+
+    const data = await apiFetch('daily');
+    if (!data || data.message) {
+      container.innerHTML = `
+        <div class="note-viewer active">
+          <div class="empty">📅 Sem daily note hoje.<br/>
+          <small style="color:var(--muted)">${(data && data.date) || new Date().toISOString().split('T')[0]}</small></div>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="note-viewer active">
+        <div class="note-viewer-header">
+          <h2>${data.title}</h2>
+        </div>
+        <pre class="note-content">${data.content}</pre>
+      </div>`;
+  }
+
+  // ── CLAUDE CONTEXT ───────────────────────────────
+  async function loadClaudeContext() {
+    const container = document.getElementById('claudeContent');
+    container.innerHTML = loading();
+
+    const data = await apiFetch('claude');
+    if (!data) {
+      container.innerHTML = '<div class="empty">Erro ao carregar contexto.</div>';
+      return;
+    }
+
+    container.innerHTML = Object.entries(data).map(([key, content]) => `
+      <div class="note-viewer active" style="margin-bottom:16px;">
+        <div class="note-viewer-header">
+          <h2 style="font-family:var(--mono);font-size:16px;">📄 ${key}.md</h2>
+        </div>
+        <pre class="note-content">${content}</pre>
+      </div>
+    `).join('');
+  }
+
+  // ── PROJECTS ─────────────────────────────────────
+  async function loadProject(name) {
+    showPage('project');
+    document.getElementById('projectTitle').textContent = name;
+    document.getElementById('projectSubtitle').textContent = 'Notas do projeto';
+    document.getElementById('projectContent').innerHTML = loading();
+
+    const data = await apiFetch(`project/${encodeURIComponent(name)}`);
+
+    if (!data || !data.files || !data.files.length) {
+      document.getElementById('projectContent').innerHTML =
+        '<div class="empty">Nenhuma nota encontrada neste projeto.</div>';
+      return;
+    }
+
+    document.getElementById('projectSubtitle').textContent = `${data.files.length} nota${data.files.length !== 1 ? 's' : ''}`;
+
+    document.getElementById('projectContent').innerHTML =
+      `<div class="results-list">${data.files.map(f => `
+        <div class="result-item" onclick="openNote('${f.path.replace(/'/g, "\\'")}', '${f.title.replace(/'/g, "\\'")}')">
+          <div class="result-title">${f.title}</div>
+          <div class="result-path">${f.path}</div>
+          <div class="result-preview">${f.preview}</div>
+          ${f.tags && f.tags.length ? `<div class="tags">${f.tags.map(t => `<span class="tag">#${t}</span>`).join('')}</div>` : ''}
+        </div>
+      `).join('')}</div>`;
+  }
+
+  // ── INIT ─────────────────────────────────────────
+  (function init() {
+    const session = getSession();
+    if (session) {
+      headers = { 'x-api-key': session.apiKey };
+      hideLogin();
+      initDashboard();
+    } else {
+      showLogin();
+    }
+  })();
+</script>
+
+</body>
+</html>

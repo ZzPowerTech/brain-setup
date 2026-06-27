@@ -1,0 +1,68 @@
+version: '3.9'
+
+# ═══════════════════════════════════════════════════════════
+#  Murilo's Second Brain — Docker Compose
+#  Domínio: weissmurillo.de
+#  VPS: Hostinger Ubuntu 24.04
+#  Stack: NestJS (Brain API) + AppFlowy
+#  Sync: Obsidian Headless (systemd) — sem CouchDB
+# ═══════════════════════════════════════════════════════════
+
+networks:
+  brain-net:
+    driver: bridge
+
+volumes:
+  appflowy-data:
+    driver: local
+
+services:
+
+  # ─────────────────────────────────────────────
+  # Brain API — NestJS
+  # Acesso: https://api.weissmurillo.de
+  # ─────────────────────────────────────────────
+  brain-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: brain-api:latest
+    container_name: brain-api
+    restart: unless-stopped
+    environment:
+      VAULT_PATH: /vault
+      BRAIN_API_KEY: ${BRAIN_API_KEY}
+      PORT: 3000
+      NODE_ENV: production
+      ALLOWED_ORIGIN: https://brain.weissmurillo.de
+    volumes:
+      - /opt/brain/vault:/vault
+    networks:
+      - brain-net
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ─────────────────────────────────────────────
+  # AppFlowy Cloud — Dashboard Web
+  # Acesso: https://brain.weissmurillo.de
+  # ─────────────────────────────────────────────
+  appflowy:
+    image: appflowyinc/appflowy-cloud:latest
+    container_name: brain-appflowy
+    restart: unless-stopped
+    environment:
+      APPFLOWY_ENVIRONMENT: production
+      APPFLOWY_DATABASE_URL: sqlite:///data/appflowy.db
+      APPFLOWY_GOTRUE_JWT_SECRET: ${APPFLOWY_JWT_SECRET}
+    volumes:
+      - appflowy-data:/data
+    networks:
+      - brain-net
+    ports:
+      - "127.0.0.1:8080:8080"

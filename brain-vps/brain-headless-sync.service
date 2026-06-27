@@ -1,0 +1,20 @@
+[Unit]
+Description=Brain Vault — Obsidian Headless Continuous Sync
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/brain/vault
+ExecStart=/usr/bin/ob sync --path /opt/brain/vault --continuous
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=brain-headless-sync
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

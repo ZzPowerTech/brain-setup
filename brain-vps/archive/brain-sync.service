@@ -1,0 +1,32 @@
+[Unit]
+Description=Brain Vault — Sincroniza CouchDB LiveSync para Filesystem
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/brain
+
+# Carrega variáveis de /opt/brain/.env (inclui COUCHDB_PASSWORD)
+EnvironmentFile=/opt/brain/.env
+Environment="COUCHDB_HOST=127.0.0.1"
+Environment="COUCHDB_PORT=5984"
+Environment="COUCHDB_USER=admin"
+Environment="COUCHDB_DB=obsidian-livesync"
+Environment="VAULT_PATH=/opt/brain/vault"
+Environment="SYNC_INTERVAL=30000"
+
+ExecStart=/usr/bin/node /opt/brain/sync-couchdb-to-fs.js
+
+# Reinicia automaticamente se falhar
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=brain-sync
+
+[Install]
+WantedBy=multi-user.target
