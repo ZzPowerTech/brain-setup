@@ -20,6 +20,9 @@ const BRAIN_API_KEY = process.env.BRAIN_API_KEY ?? "";
 const MODE = process.env.MCP_MODE ?? "stdio"; // "stdio" | "http"
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 
+const FINANCE_API_URL = "https://finance.weissmurillo.de/api";
+const FINANCE_CLI_TOKEN = process.env.FINANCE_CLI_TOKEN ?? "";
+
 if (!BRAIN_API_KEY) {
   console.error("❌ BRAIN_API_KEY não configurada");
   process.exit(1);
@@ -205,6 +208,70 @@ function createMcpServer(): Server {
           required: ["path", "content"],
         },
       },
+      {
+        name: "brain-update-note",
+        description: "Edita uma nota existente in-place por âncora (str_replace): troca a ocorrência única de 'oldString' por 'newString'. Use para CORRIGIR/ATUALIZAR conteúdo já escrito (ex: marcar algo como [SUPERSEDED], corrigir um fato). Para remover um trecho, passe newString vazio. Se a âncora aparecer mais de uma vez, forneça uma âncora maior/única ou use replaceAll=true.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            path: { type: "string", description: "Caminho relativo da nota (ex: memory/Preferences.md)" },
+            oldString: { type: "string", description: "Trecho exato a ser localizado (âncora). Deve ser único, salvo replaceAll." },
+            newString: { type: "string", description: "Texto que substitui a âncora. Vazio remove o trecho." },
+            replaceAll: { type: "boolean", description: "Substituir todas as ocorrências (padrão: false)" },
+          },
+          required: ["path", "oldString", "newString"],
+        },
+      },
+      {
+        name: "brain-delete-note",
+        description: "Remove uma nota do vault via SOFT DELETE: move para archive/.trash/ (nunca apaga de verdade). Use para descartar notas obsoletas/lixo. A nota some da busca e da estrutura, mas permanece recuperável na lixeira.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            path: { type: "string", description: "Caminho relativo da nota a remover (ex: inbox/rascunho.md)" },
+          },
+          required: ["path"],
+        },
+      },
+      {
+        name: "brain-rename-note",
+        description: "Renomeia ou move uma nota dentro do vault (origem → destino). Não sobrescreve um destino já existente. Útil para reorganizar/recategorizar notas.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            path: { type: "string", description: "Caminho atual da nota (origem)" },
+            newPath: { type: "string", description: "Novo caminho da nota (destino)" },
+          },
+          required: ["path", "newPath"],
+        },
+      },
+      {
+        name: "finance-lancar",
+        description: "EXCLUSIVO para lançar transações financeiras no sistema ausFinanceiro (dashboard financeiro do AusTV em finance.weissmurillo.de). Use SEMPRE que o usuário pedir para: registrar venda, lançar gasto, adicionar receita, registrar despesa, registrar entrada/saída de dinheiro. NÃO use brain-daily-append para isso.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            tipo: { type: "string", enum: ["venda", "gasto"], description: "'venda' para entradas/receitas, 'gasto' para saídas/despesas" },
+            valor: { type: "number", description: "Valor em reais (ex: 350.00)" },
+            descricao: { type: "string", description: "Descrição da transação" },
+            categoria: { type: "string", description: "Categoria livre (ex: infraestrutura, VIP, loja, salário)" },
+            data: { type: "string", description: "Data YYYY-MM-DD (padrão: hoje)" },
+          },
+          required: ["tipo", "valor", "descricao", "categoria"],
+        },
+      },
+      {
+        name: "finance-listar",
+        description: "Lista transações recentes e mostra resumo financeiro (total de vendas, gastos e saldo) do ausFinanceiro. Use quando perguntado sobre saldo, transações recentes, gastos do mês, etc.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            limit: { type: "number", description: "Quantidade de transações (padrão: 10)" },
+            tipo: { type: "string", enum: ["venda", "gasto"], description: "Filtrar por tipo (opcional)" },
+          },
+          required: [],
+        },
+      },
     ],
   }));
 
@@ -292,6 +359,89 @@ function createMcpServer(): Server {
           const notePath = a["path"] as string;
           const content = a["content"] as string;
           result = await callBrainAPI("/brain/note/append", "PATCH", { path: notePath, content });
+          break;
+        }
+        case "brain-update-note": {
+          const notePath = a["path"] as string;
+          const oldString = a["oldString"] as string;
+          const newString = a["newString"] as string;
+          const replaceAll = (a["replaceAll"] as boolean | undefined) ?? false;
+          result = await callBrainAPI("/brain/note", "PATCH", {
+            path: notePath,
+            oldString,
+            newString,
+            replaceAll,
+          });
+          break;
+        }
+        case "brain-delete-note": {
+          const notePath = a["path"] as string;
+          result = await callBrainAPI(`/brain/note?path=${encodeURIComponent(notePath)}`, "DELETE");
+          break;
+        }
+        case "brain-rename-note": {
+          const notePath = a["path"] as string;
+          const newPath = a["newPath"] as string;
+          result = await callBrainAPI("/brain/note/rename", "POST", { path: notePath, newPath });
+          break;
+        }
+        case "finance-lancar": {
+          const today = new Date().toISOString().slice(0, 10);
+          const payload = {
+            tipo: a["tipo"] as string,
+            valor: a["valor"] as number,
+            descricao: a["descricao"] as string,
+            categoria: a["categoria"] as string,
+            data: (a["data"] as string | undefined) ?? today,
+          };
+          const res = await fetch(`${FINANCE_API_URL}/transactions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${FINANCE_CLI_TOKEN}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Finance API error (${res.status}): ${err}`);
+          }
+          const tx = await res.json() as Record<string, unknown>;
+          const tipo = tx["tipo"] === "venda" ? "✅ Venda" : "💸 Gasto";
+          const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+          result = `${tipo} lançado com sucesso!\n• Valor: ${fmt(Number(tx["valor"]))}\n• Descrição: ${tx["descricao"]}\n• Categoria: ${tx["categoria"]}\n• Data: ${tx["data"]}\n• ID: ${tx["id"]}`;
+          break;
+        }
+        case "finance-listar": {
+          const limit = (a["limit"] as number | undefined) ?? 10;
+          const tipo = a["tipo"] as string | undefined;
+          const params = new URLSearchParams({ limit: String(limit), page: "1" });
+          if (tipo) params.set("tipo", tipo);
+
+          const [txRes, sumRes] = await Promise.all([
+            fetch(`${FINANCE_API_URL}/transactions?${params}`, {
+              headers: { "Authorization": `Bearer ${FINANCE_CLI_TOKEN}` },
+            }),
+            fetch(`${FINANCE_API_URL}/transactions/summary`, {
+              headers: { "Authorization": `Bearer ${FINANCE_CLI_TOKEN}` },
+            }),
+          ]);
+
+          if (!txRes.ok) throw new Error(`Finance API error (${txRes.status})`);
+          const page = await txRes.json() as { data: Record<string, unknown>[], total: number };
+          const summary = sumRes.ok ? await sumRes.json() as Record<string, unknown> : null;
+
+          const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+          let text = "";
+          if (summary) {
+            text += `📊 Resumo:\n• Vendas: ${fmt(Number(summary["totalVendas"]))}\n• Gastos: ${fmt(Number(summary["totalGastos"]))}\n• Saldo: ${fmt(Number(summary["saldo"]))}\n\n`;
+          }
+          text += `📋 Últimas ${page.data.length} de ${page.total} transações:\n`;
+          for (const tx of page.data) {
+            const sinal = tx["tipo"] === "venda" ? "+" : "-";
+            text += `• [${tx["data"]}] ${tx["tipo"]} | ${tx["categoria"]} | ${tx["descricao"]} | ${sinal}${fmt(Number(tx["valor"]))}\n`;
+          }
+          result = text;
           break;
         }
         default:

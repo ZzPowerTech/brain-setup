@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Query,
   Param,
   Body,
@@ -31,6 +32,8 @@ import { ListTasksQueryDto } from './dto/list-tasks-query.dto';
 import { ToggleTaskDto } from './dto/toggle-task.dto';
 import { AppendNoteDto } from './dto/append-note.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { UpdateNoteDto } from './dto/update-note.dto';
+import { RenameNoteDto } from './dto/rename-note.dto';
 
 interface SearchResponse {
   results: NotePreview[];
@@ -172,5 +175,31 @@ export class BrainController {
       throw new NotFoundException('Recurso não encontrado');
     }
     return note;
+  }
+
+  // PATCH /api/brain/note — edição in-place por âncora (str_replace)
+  @Patch('note')
+  async updateNote(@Body() body: UpdateNoteDto): Promise<NoteDetail> {
+    return this.brain.updateNote(
+      body.path,
+      body.oldString,
+      body.newString,
+      body.replaceAll ?? false,
+    );
+  }
+
+  // DELETE /api/brain/note?path=... — soft delete (move para archive/.trash/)
+  @Delete('note')
+  async deleteNote(
+    @Query() query: NotePathDto,
+  ): Promise<{ success: boolean; trashedTo: string }> {
+    return this.brain.deleteNote(query.path);
+  }
+
+  // POST /api/brain/note/rename — renomeia/move uma nota
+  @Post('note/rename')
+  @HttpCode(HttpStatus.OK)
+  async renameNote(@Body() body: RenameNoteDto): Promise<NoteDetail> {
+    return this.brain.renameNote(body.path, body.newPath);
   }
 }

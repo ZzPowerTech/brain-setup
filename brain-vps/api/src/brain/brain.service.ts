@@ -61,6 +61,8 @@ const VAULT_PATHS = {
   memoryDir: 'memory',
   projectsDir: 'projects',
   dailyDir: 'daily',
+  // Lixeira do soft-delete. Começa com '.' → ignorada por search/structure/getAllMdFiles.
+  trashDir: 'archive/.trash',
 } as const;
 
 @Injectable()
@@ -564,5 +566,117 @@ export class BrainService {
     const existing = await fs.promises.readFile(fullPath, 'utf-8');
     const separator = existing.endsWith('\n') ? '' : '\n';
     await fs.promises.appendFile(fullPath, `${separator}\n${content}`, 'utf-8');
+  }
+
+  // ─── Escrita atômica ──────────────────────────────────────────────────────
+
+  // Escreve num arquivo temporário no mesmo diretório e renomeia por cima.
+  // rename() é atômico no mesmo filesystem → nunca deixa a nota meio-escrita.
+  private async atomicWrite(fullPath: string, content: string): Promise<void> {
+    const tmpPath = `${fullPath}.${process.pid}.${Date.now()}.tmp`;
+    await fs.promises.writeFile(tmpPath, content, 'utf-8');
+    try {
+      await fs.promises.rename(tmpPath, fullPath);
+    } catch (err) {
+      await fs.promises.rm(tmpPath, { force: true });
+      throw err;
+    }
+  }
+
+  // ─── Update por âncora (str_replace) ──────────────────────────────────────
+
+  async updateNote(
+    notePath: string,
+    oldString: string,
+    newString: string,
+    replaceAll = false,
+  ): Promise<NoteDetail> {
+    const fullPath = this.resolveSafePath(notePath);
+
+    let raw: string;
+    try {
+      raw = await fs.promises.readFile(fullPath, 'utf-8');
+    } catch {
+      throw new NotFoundException('Nota não encontrada');
+    }
+
+    if (oldString === newString) {
+      throw new BadRequestException('oldString e newString são idênticos — nada a alterar');
+    }
+
+    const occurrences = raw.split(oldString).length - 1;
+    if (occurrences === 0) {
+      throw new BadRequestException('Âncora (oldString) não encontrada na nota');
+    }
+    if (occurrences > 1 && !replaceAll) {
+      throw new BadRequestException(
+        `Âncora aparece ${occurrences} vezes na nota. Forneça uma âncora única ou use replaceAll.`,
+      );
+    }
+
+    const updated = replaceAll
+      ? raw.split(oldString).join(newString)
+      : raw.replace(oldString, newString);
+
+    await this.atomicWrite(fullPath, updated);
+
+    const note = await this.read(notePath);
+    if (!note) {
+      throw new NotFoundException('Falha ao ler nota após update');
+    }
+    return note;
+  }
+
+  // ─── Soft delete (move para a lixeira, nunca rm real) ─────────────────────
+
+  async deleteNote(notePath: string): Promise<{ success: boolean; trashedTo: string }> {
+    const fullPath = this.resolveSafePath(notePath);
+
+    try {
+      await fs.promises.access(fullPath);
+    } catch {
+      throw new NotFoundException('Nota não encontrada');
+    }
+
+    // archive/.trash/<timestamp>__<caminho-achatado>.md
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const flat = notePath.replace(/[\\/]/g, '__');
+    const trashRelative = `${VAULT_PATHS.trashDir}/${stamp}__${flat}`;
+    const trashFull = this.resolveSafePath(trashRelative);
+
+    await fs.promises.mkdir(path.dirname(trashFull), { recursive: true });
+    await fs.promises.rename(fullPath, trashFull);
+
+    return { success: true, trashedTo: trashRelative };
+  }
+
+  // ─── Rename / move ────────────────────────────────────────────────────────
+
+  async renameNote(fromPath: string, toPath: string): Promise<NoteDetail> {
+    const fromFull = this.resolveSafePath(fromPath);
+    const toFull = this.resolveSafePath(toPath);
+
+    try {
+      await fs.promises.access(fromFull);
+    } catch {
+      throw new NotFoundException('Nota de origem não encontrada');
+    }
+
+    const destExists = await fs.promises
+      .access(toFull)
+      .then(() => true)
+      .catch(() => false);
+    if (destExists) {
+      throw new BadRequestException('Já existe uma nota no destino — rename não sobrescreve');
+    }
+
+    await fs.promises.mkdir(path.dirname(toFull), { recursive: true });
+    await fs.promises.rename(fromFull, toFull);
+
+    const note = await this.read(toPath);
+    if (!note) {
+      throw new NotFoundException('Falha ao ler nota após rename');
+    }
+    return note;
   }
 }
